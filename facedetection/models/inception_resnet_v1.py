@@ -196,7 +196,7 @@ class InceptionResnetV1(nn.Module):
             initialized. (default: {None})
         dropout_prob {float} -- Dropout probability. (default: {0.6})
     """
-    def __init__(self, pretrained=None, classify=False, num_classes=None, dropout_prob=0.6, device=None):
+    def __init__(self, pretrained=None, classify=False, num_classes=None, dropout_prob=0.6, device=None, path=None, download=False):
         super().__init__()
 
         # Set simple attributes
@@ -212,6 +212,9 @@ class InceptionResnetV1(nn.Module):
             raise Exception('At least one of "pretrained" or "num_classes" must be specified')
         else:
             tmp_classes = self.num_classes
+
+        if download == False and path is None:
+            raise Exception('download is set to false and path is not given. Either set download to True or give a path for the pretrained models.')
 
 
         # Define layers
@@ -257,8 +260,12 @@ class InceptionResnetV1(nn.Module):
         self.last_bn = nn.BatchNorm1d(512, eps=0.001, momentum=0.1, affine=True)
         self.logits = nn.Linear(512, tmp_classes)
 
-        if pretrained is not None:
-            load_weights(self, pretrained)
+        if path is not None and download == False:
+            load_weights(self, path)
+        elif pretrained is not None and download == True:
+            download_weights(self, pretrained)
+        else:
+            raise Exception("Check init parameters!")
 
         if self.num_classes is not None:
             self.logits = nn.Linear(512, self.num_classes)
@@ -301,7 +308,15 @@ class InceptionResnetV1(nn.Module):
         return x
 
 
-def load_weights(mdl, name):
+def load_weights(mdl, path):
+    """
+    Load the saved pretrained weights from the given path and load into model.
+    """
+    state_dict = torch.load(path)
+    mdl.load_state_dict(state_dict)
+    print('loaded inception face net')
+
+def download_weights(mdl, name):
     """Download pretrained state_dict and load into model.
 
     Arguments:
@@ -320,7 +335,8 @@ def load_weights(mdl, name):
     else:
         raise ValueError('Pretrained models only exist for "vggface2" and "casia-webface"')
 
-    model_dir = os.path.join(get_torch_home(), 'checkpoints')
+    model_dir = os.path.join(os.path.dirname(__file__), 'inception_checkpoints')
+    print(model_dir)
     os.makedirs(model_dir, exist_ok=True)
 
     state_dict = {}
